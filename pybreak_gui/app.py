@@ -10,7 +10,7 @@ from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
-from prompt_toolkit.layout import Layout, Window
+from prompt_toolkit.layout import Layout, HSplit
 from prompt_toolkit.lexers import DynamicLexer, PygmentsLexer
 from prompt_toolkit.widgets import SearchToolbar, TextArea
 
@@ -26,28 +26,32 @@ class PybreakGui(Bdb):
         super().__init__()
         self.paused = True
         self.buffer = Buffer()
-        self.loop = asyncio.get_event_loop()
-        self.app_thread = threading.Thread(target=self.start_gui, args=(self.loop,))
+        self.app_thread = threading.Thread(target=self.start_gui, args=(asyncio.get_event_loop(),))
         self.frame_history = FrameHistory()
 
         self.search_toolbar = SearchToolbar()
+
+        def get_view_file():
+            if len(self.frame_history.history) > 0:
+                return self.frame_history.hist_frame.filename
+            return ".py"
+
         self.text_area = TextArea(
             lexer=DynamicLexer(
                 lambda: PygmentsLexer.from_filename(
-                    self.frame_history.hist_frame.filename or ".py", sync_from_start=False
+                    get_view_file(), sync_from_start=False
                 )
             ),
             search_field=self.search_toolbar,
             scrollbar=True,
             line_numbers=True,
         )
-        # self.container = HSplit(
-        #     [
-        #         self.text_area,
-        #         self.search_toolbar,
-        #     ]
-        # )
-        self.window = Window()
+        self.container = HSplit(
+            [
+                self.text_area,
+                self.search_toolbar,
+            ]
+        )
 
         kb = KeyBindings()
 
@@ -63,13 +67,15 @@ class PybreakGui(Bdb):
 
         self.app = Application(
             full_screen=True,
-            layout=Layout(container=self.window),
+            layout=Layout(container=self.container),
             key_bindings=kb,
         )
+        self.app.loop = asyncio.get_event_loop()
 
     def start_gui(self, loop):
-        self.app.loop = loop
+        asyncio.set_event_loop(loop)
         self.app.run()
+        self.text_area.buffer.insert_text("HELLO WORLD")
 
     def start(self, frame):
         self.app_thread.start()
@@ -80,8 +86,9 @@ class PybreakGui(Bdb):
         self.quitting = True
 
     def user_call(self, frame: types.FrameType, argument_list):
-        if self.stop_here(frame):
-            self.frame_history.append(frame)
+        # if self.stop_here(frame):
+        # self.frame_history.append(frame)
+        pass
 
     def user_line(self, frame: types.FrameType):
         """
@@ -94,10 +101,10 @@ class PybreakGui(Bdb):
          * break_here() yields true only if there's a breakpoint for this
          line
         """
-        # self.text_area.buffer.insert_text(f"FRAME = {frame.f_code.co_filename}:{frame.f_lineno}")
+        self.text_area.buffer.insert_text(f"FRAME = {frame.f_code.co_filename}:{frame.f_lineno}")
         if self.stop_here(frame):
-            print("frame", frame)
-            # self.text_area.buffer.insert_text(str(frame.f_code.co_filename) + str(frame.f_lineno) + "\n")
+            # print("frame", frame)
+            self.text_area.buffer.insert_text(str(frame.f_code.co_filename) + str(frame.f_lineno) + "\n")
             self.frame_history.append(frame)
             # self.text_area.buffer.insert_text(f"STOPPING AT {frame.f_code.co_filename}:{frame.f_lineno}")
 

@@ -6,7 +6,7 @@ authors = ["Darren Burns <darren.burns@fanduel.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.6"
-prompt-toolkit = "^3.0.0"
+prompt-toolkit = "^3.0"
 
 [tool.poetry.dev-dependencies]
 ward = "0.34.0b0"
