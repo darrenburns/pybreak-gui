@@ -7,7 +7,6 @@ import types
 from bdb import Bdb
 
 from prompt_toolkit import Application
-from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from prompt_toolkit.layout import Layout, HSplit
@@ -25,11 +24,12 @@ class PybreakGui(Bdb):
     def __init__(self):
         super().__init__()
         self.paused = True
-        self.buffer = Buffer()
         self.app_thread = threading.Thread(target=self.start_gui, args=(asyncio.get_event_loop(),))
         self.frame_history = FrameHistory()
 
-        self.search_toolbar = SearchToolbar()
+        self.search_toolbar = SearchToolbar(
+            text_if_not_searching=[("class:not-searching", "Press '/' to start searching.")]
+        )
 
         def get_view_file():
             if len(self.frame_history.history) > 0:
@@ -57,8 +57,8 @@ class PybreakGui(Bdb):
 
         @kb.add("c-q")
         def _(event: KeyPressEvent):
+            self.paused = False
             self._quit()
-            event.app.exit()
 
         @kb.add("c-n")
         def _(event):
@@ -84,6 +84,7 @@ class PybreakGui(Bdb):
     def _quit(self):
         sys.settrace(None)
         self.quitting = True
+        self.app.exit()
 
     def user_call(self, frame: types.FrameType, argument_list):
         # if self.stop_here(frame):
@@ -103,10 +104,8 @@ class PybreakGui(Bdb):
         """
         self.text_area.buffer.insert_text(f"FRAME = {frame.f_code.co_filename}:{frame.f_lineno}")
         if self.stop_here(frame):
-            # print("frame", frame)
             self.text_area.buffer.insert_text(str(frame.f_code.co_filename) + str(frame.f_lineno) + "\n")
             self.frame_history.append(frame)
-            # self.text_area.buffer.insert_text(f"STOPPING AT {frame.f_code.co_filename}:{frame.f_lineno}")
 
             while self.paused:
                 time.sleep(.1)
